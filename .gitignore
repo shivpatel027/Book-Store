@@ -1,3 +1,15 @@
-.env
-docker-compoase.yml
+# Node modules
 node_modules/
+
+# Environment variables
+.env
+
+# Drizzle build output
+drizzle/
+
+# Logs
+logs/
+*.log
+
+# MacOS
+.DS_Store
