@@ -1,58 +1,69 @@
-const { books } = require('../models/book');    
+const { booksTable } = require('../models/book.model'); 
+const db = require('../db');
+const { eq } = require('drizzle-orm');
 
-exports.getAllBooks = (req, res) => {
-  res.json(books);
-};
-
-exports.getBookById = (req, res) => {
-  const bookId = parseInt(req.params.id);
-
-  if(isNaN(bookId)) {
-    return res.status(400).send('Invalid book ID');
-  }
-  const book = books.find(b => b.id === bookId);
-  
-  if (book) {
-    res.json(book);
-  } else {
-    res.status(404).send('Book not found');
+exports.getAllBooks = async (req, res) => {
+  try {
+    const books = await db.select().from(booksTable);
+    return res.json(books);
+  } catch (error) {
+    console.error('Error fetching books:', error);
+    return res.status(500).json({ error: 'Failed to fetch books' });
   }
 };
 
-exports.createBook = (req, res) => {
-  const { title, author } = req.body;
-
-  if (!title || !author) {
-    return res.status(400).send('Title and author are required');
+exports.getBookById = async (req, res) => {
+  try {
+    const bookId = req.params.id; // Keep as UUID string
+    
+    const book = await db.select()
+      .from(booksTable)
+      .where(eq(booksTable.id, bookId))
+      .limit(1);
+    
+    if (book && book.length > 0) {
+      res.json(book[0]);
+    } else {
+      res.status(404).send('Book not found');
+    }
+  } catch (error) {
+    console.error('Error fetching book:', error);
+    return res.status(500).json({ error: 'Failed to fetch book' });
   }
+};
 
-  if (books.some(b => b.title === title)) {
-    return res.status(400).send('Book with this title already exists');
+exports.createBook = async (req, res) => {
+  try {
+    const { title, description, authorId } = req.body;
+    
+    if (!title || !authorId) {
+      return res.status(400).send('Title and authorId are required');
+    }
+    
+    const result = await db.insert(booksTable)
+      .values({ title, description, authorId })
+      .returning();
+    
+    res.status(201).json({ 
+      message: "Book created successfully", 
+      book: result[0] 
+    });
+  } catch (error) {
+    console.error('Error creating book:', error);
+    return res.status(500).json({ error: 'Failed to create book' });
   }
+};
 
-  const newBook = {
-    id: books.length + 1,
-    title,
-    author
-  };
-
-  books.push(newBook);
-  res.status(201).json(newBook);
-}   
-
-exports.deleteBook = (req, res) => {
-  const bookId = parseInt(req.params.id);
-
-  if(isNaN(bookId)) {
-    return res.status(400).send('Invalid book ID');
-  }
-
-  const bookIndex = books.findIndex(b => b.id === bookId);
-
-  if (bookIndex !== -1) {
-    const deletedBook = books.splice(bookIndex, 1);
-    res.json(deletedBook[0]);
-  } else {
-    res.status(404).send('Book not found');
+exports.deleteBook = async (req, res) => {
+  try {
+    const bookId = req.params.id; // Keep as UUID string
+    
+    await db.delete(booksTable)
+      .where(eq(booksTable.id, bookId));
+    
+    res.json({ message: 'Book deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting book:', error);
+    return res.status(500).json({ error: 'Failed to delete book' });
   }
 };
