@@ -1,10 +1,25 @@
-const { booksTable } = require('../models/book.model'); 
+const { booksTable } = require('../models/book.model');
 const db = require('../db');
-const { eq } = require('drizzle-orm');
+const { eq, sql } = require('drizzle-orm');
 
 exports.getAllBooks = async (req, res) => {
   try {
-    const books = await db.select().from(booksTable);
+    const { search } = req.query;
+    
+    let books;
+    
+    if (search) {
+      // Full-text search if search parameter exists
+      books = await db.select()
+        .from(booksTable)
+        .where(
+          sql`to_tsvector('english', ${booksTable.title} || ' ' || COALESCE(${booksTable.description}, '')) @@ plainto_tsquery('english', ${search})`
+        );
+    } else {
+      // Get all books if no search parameter
+      books = await db.select().from(booksTable);
+    }
+    
     return res.json(books);
   } catch (error) {
     console.error('Error fetching books:', error);
@@ -14,7 +29,7 @@ exports.getAllBooks = async (req, res) => {
 
 exports.getBookById = async (req, res) => {
   try {
-    const bookId = req.params.id; // Keep as UUID string
+    const bookId = req.params.id;
     
     const book = await db.select()
       .from(booksTable)
@@ -56,7 +71,7 @@ exports.createBook = async (req, res) => {
 
 exports.deleteBook = async (req, res) => {
   try {
-    const bookId = req.params.id; // Keep as UUID string
+    const bookId = req.params.id;
     
     await db.delete(booksTable)
       .where(eq(booksTable.id, bookId));
